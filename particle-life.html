@@ -1,0 +1,159 @@
+<html>
+<title>Life</title>
+
+<head>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            color-scheme: dark;
+            --canvas-bg-color: rgba(0, 0, 0, 0);
+            /* transparent */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #canvas {
+            border: #504e52;
+            border-style: dashed;
+            border-width: 5;
+            outline: none;
+            /* because of the 'tabindex' focus trick */
+            background-color: var(--canvas-bg-color);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="life" width="500" height="500"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17"></script>
+    <script>
+        //edited from https://github.com/hunar4321/particle-life
+
+        m = document.getElementById("life").getContext("2d");
+
+        settings = {
+            Pause: false,
+            Speed: 1,
+            Gravity: 1.0,
+            colors: {
+                red: true,
+                orange: false,
+                yellow: true,
+                green: true,
+                aqua: false,
+                blue: false,
+                violet: false,
+            },
+            gui: null,
+        }
+
+        Object.defineProperty(String.prototype, 'capitalise', {
+            value: function() {
+                return this.charAt(0).toUpperCase() + this.slice(1);
+            },
+            enumerable: false
+        })
+
+        const setupGUI = () => {
+            settings.gui = new lil.GUI();
+            const settingGame = settings.gui.addFolder('Game Setting');
+            settingGame.add(settings, 'Pause');
+            settingGame.add(settings, 'Speed', -10, 10, 0.1);
+            settingGame.add(settings, 'Gravity', 0, 10, 0.1);
+            
+            const settingParticles = settings.gui.addFolder('Particle ON/OFF');
+            Object.keys(settings.colors).forEach(function(particleColor) {
+                colorStr = String(particleColor);
+                console.log(typeof colorStr, colorStr);
+                settingParticles.add(settings.colors, colorStr)
+                    .name(`<font color=\'${colorStr}\'>${colorStr.capitalise()}</font>`);
+            });
+
+            
+        }
+
+        draw = (x, y, c, s) => {
+            m.fillStyle = c;
+            m.fillRect(x, y, s, s);
+        };
+
+        atoms = [];
+        atom = (x, y, c) => {
+            return { x: x, y: y, vx: 0, vy: 0, color: c };
+        };
+
+        random = () => {
+            return Math.random() * 400 + 50;
+        };
+
+        create = (number, color) => {
+            group = [];
+            for (let i = 0; i < number; i++) {
+                group.push(atom(random(), random(), color));
+                atoms.push(group[i]);
+            }
+            return group;
+        };
+
+        rule = (atoms1, atoms2, g) => {
+            for (let i = 0; i < atoms1.length; i++) {
+                fx = 0;
+                fy = 0;
+                for (let j = 0; j < atoms2.length; j++) {
+                    a = atoms1[i];
+                    b = atoms2[j];
+                    dx = a.x - b.x;
+                    dy = a.y - b.y;
+                    d = Math.sqrt(dx * dx + dy * dy);
+                    if (d > 0 && d < 80) {
+                        F = (g * 1) / d;
+                        fx += F * dx;
+                        fy += F * dy;
+                    }
+                }
+                a.vx = (a.vx + fx) * 0.5;
+                a.vy = (a.vy + fy) * 0.5;
+                a.x += a.vx;
+                a.y += a.vy;
+                if (a.x <= 0 || a.x >= 500) { a.vx *= -1; }
+                if (a.y <= 0 || a.y >= 500) { a.vy *= -1; }
+            }
+        };
+
+        applyRules = () => {
+            rule(green, green, -0.32);
+            rule(green, red, -0.17);
+            rule(green, yellow, 0.34);
+        }
+
+        setupGUI();
+
+        yellow = create(200, "yellow");
+        red = create(200, "red");
+        green = create(200, "green");
+
+        update = () => {
+
+            applyRules();
+
+            m.clearRect(0, 0, 500, 500);
+            draw(0, 0, "black", 500);
+            for (i = 0; i < atoms.length; i++) {
+                draw(atoms[i].x, atoms[i].y, atoms[i].color, 5);
+            }
+
+            requestAnimationFrame(update);
+        };
+
+        update();
+    </script>
+
+</body>
+
+</html>
