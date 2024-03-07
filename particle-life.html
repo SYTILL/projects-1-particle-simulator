@@ -33,36 +33,37 @@
     <canvas id="life" width="500" height="500"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17"></script>
     <script>
-        //edited from https://github.com/hunar4321/particle-life
+        //this code is modified verison of https://github.com/hunar4321/particle-life
 
         m = document.getElementById("life").getContext("2d");
 
-        defaultColorSetting = (c, on) => {
+        defaultColorSetting = (i, c, on) => {
             return {
+                index: i,
                 color: c,
                 onOff: on,
+                detectionRange: 30,
+                deathEvent: "nothing",
                 consumeSizeUp: 1,
                 sizeLimit: 15,
-                deathEvent: "nothing",
                 canConsume: ["red"],
-                detectionRange: 30,
             }
         }
 
         settings = {
             Pause: false,
             Speed: 1,
-            Gravity: 1.0,
+            Gravity: 0.0,
             colors: [
-                defaultColorSetting("red", true),
-                defaultColorSetting("orange", true),
-                defaultColorSetting("yellow", true),
-                defaultColorSetting("green", true),
-                defaultColorSetting("aqua", false),
-                defaultColorSetting("blue", false),
-                defaultColorSetting("violet", false),
+                defaultColorSetting(0, "red", true),
+                defaultColorSetting(1, "orange", true),
+                defaultColorSetting(2, "yellow", true),
+                defaultColorSetting(3, "green", false),
+                defaultColorSetting(4, "aqua", false),
+                defaultColorSetting(5, "blue", false),
+                defaultColorSetting(6, "violet", false),
             ],
-            rules: [],
+            rules: {},
             Random: () => { randomRules() },
             gui: null,
         }
@@ -76,50 +77,104 @@
 
         const setupGUI = () => {
             settings.gui = new lil.GUI();
+
             //game settings
             const settingGame = settings.gui.addFolder('Game Settings');
             settingGame.add(settings, 'Pause');
-            settingGame.add(settings, 'Speed', -10, 10, 0.1);
+            settingGame.add(settings, 'Speed', -10, 10, 0.1).name("Game Speed");
             settingGame.add(settings, 'Gravity', 0, 10, 0.1);
             settingGame.add(settings, 'Random').name("Randomize Rules");
 
             //particle on/off
-            const settingParticles = settings.gui.addFolder('Particle ON/OFF');
+            const settingParticleOnOff = settings.gui.addFolder('Particle ON/OFF');
             for (var i = 0; i < settings.colors.length; i++) {
                 element = settings.colors[i];
 
-                settingParticles.add(element, "onOff")
-                    .name(`<font color=\'${element.color}\'>${element.color.capitalise()}</font>`);
+                settingParticleOnOff.add(element, "onOff")
+                    .name(`<font color=\'${element.color}\'>${element.color.toUpperCase()}</font>`)
+                    .listen().onFinishChange((v) => {
+                        foldersOnOff();
+                    });
             }
 
             //particle rules
-            for (var i = 0; i < settings.colors.length; i++) {
-                element = settings.colors[i];
+            const settingParticleRules = settings.gui.addFolder('Particle Rules');
+            for (var i of settings.colors) {
+                element = i
+                i = i.color
 
-                const folderRule = settings.gui.addFolder(element.color).close();
-                folderRule.onFinishChange((value) => {
-                        console.log("??");
-                    });
-                if (!element.onOff) {
-                    folderRule.hide();
+                //[color] (folder)
+                const folderRule = settingParticleRules
+                    .addFolder(i)
+                    .title(`<font color=\'${i}\'>[${i}]</font>`)
+                    .close();
+
+                //[color] - property
+                const folderRuleProperty = folderRule
+                    .addFolder(i)
+                    .title(`<font color=\'${i}\'>property</font>`)
+                    .close();
+
+                folderRuleProperty.add(element, "detectionRange", 10, 300, 1);
+
+
+                //[color] - strength
+                const folderRuleStrength = folderRule
+                    .addFolder(i)
+                    .title(`<font color=\'${i}\'>strength</font>`)
+
+                for (var j of settings.colors) {
+                    j = j.color
+                    //[color]<=>[color] (controller)
+                    folderRuleStrength.add(settings.rules[i], j, -1, 1)
+                        .name(`<font color=\'${i}\'>${i}</font><=><font color=\'${j}\'>${j}</font>`)
                 }
             }
-
+            foldersOnOff();
 
         }
 
-        randomRules = () => {
+        foldersOnOff = () => {
             for (var i = 0; i < settings.colors.length; i++) {
-                settings.rules[i] = [];
-                for (var j = 0; j < settings.colors.length; j++) {
-                    settings.rules[i][j] = Math.random() * 2 - 1; // range from -1.0 to 1.0
+                element = settings.gui.folders[1].children[i];
+
+                if (element.object.onOff) {
+                    settings.gui.folders[2].children[i].show();
+
+                    for (var j = 0; j < settings.colors.length; j++) {
+                        element2 = settings.gui.folders[1].children[j];
+
+                        if (element2.object.onOff) {
+                            settings.gui.folders[2].children[i].children[1].children[j].show();
+                        }
+                        else {
+                            settings.gui.folders[2].children[i].children[1].children[j].hide();
+                        }
+                    }
+                }
+                else {
+                    settings.gui.folders[2].children[i].hide();
+                }
+            }
+        }
+
+        randomRules = () => {
+            for (const i of settings.colors) {
+                settings.rules[i.color] = {};
+                for (const j of settings.colors) {
+                    settings.rules[i.color][j.color] = Number((Math.random() * 2 - 1).toFixed(3));
                 }
             }
         };
 
-        draw = (x, y, c, s) => {
+        draw = (x, y, c, s, opt = null) => {
             m.fillStyle = c;
-            m.fillRect(x, y, s, s);
+            if (!opt) {
+                m.fillRect(x, y, s, s);
+            }
+            else {
+                m.fillRect(x, y, s, opt);
+            }
         };
 
         atoms = [];
@@ -145,7 +200,9 @@
             return group;
         };
 
-        rule = (atoms1, atoms2, g) => {
+        rule = (a1, a2, g) => {
+            atoms1 = atomSets[a1];
+            atoms2 = atomSets[a2]; 
             for (let i = 0; i < atoms1.length; i++) {
                 fx = 0;
                 fy = 0;
@@ -155,7 +212,7 @@
                     dx = a.x - b.x;
                     dy = a.y - b.y;
                     d = Math.sqrt(dx * dx + dy * dy);
-                    if (d > 0 && d < 80) {
+                    if (d > 0 && d < settings.colors[a1].detectionRange) {
                         F = (g * 1) / d;
                         fx += F * dx;
                         fy += F * dy;
@@ -180,17 +237,17 @@
                     if (!settings.colors[i].onOff || !settings.colors[j].onOff) {
                         continue;
                     }
-                    rule(atomSets[i], atomSets[j], settings.rules[i][j]);
+                    rule(i, j, settings.rules[settings.colors[i].color][settings.colors[j].color]);
                 }
             }
         }
 
         //--------------setup start-------------
-        setupGUI();
         randomRules();
+        setupGUI();
 
         const initParticleNum = 50;
-        const initSize = 10;
+        const initSize = 5;
         const canvasSize = { x: 500, y: 500 };
 
         atomSets = [];
@@ -198,16 +255,19 @@
             atomSets.push(create(initParticleNum, settings.colors[i].color, initSize));
         }
 
-
-
-
         update = () => {
             if (!settings.Pause) {
                 applyRules();
+                m.clearRect(0, 0, 500, 500);
+                draw(0, 0, "black", 500);
+            }
+            else {
+                m.clearRect(0, 0, 500, 500);
+                draw(0, 0, "darkslategray", 500);
+                draw(canvasSize.x / 2 - 10 - 25, canvasSize.y / 2 - 50, "grey", 20, 100);
+                draw(canvasSize.x / 2 - 10 + 25, canvasSize.y / 2 - 50, "grey", 20, 100);
             }
 
-            m.clearRect(0, 0, 500, 500);
-            draw(0, 0, "black", 500);
             for (i = 0; i < settings.colors.length; i++) {
                 if (!settings.colors[i].onOff) { continue; }
 
