@@ -42,7 +42,7 @@
                 index: i,
                 color: c,
                 onOff: on,
-                detectionRange: 30,
+                detectionRange: 50,
                 deathEvent: "nothing",
                 consumeSizeUp: 1,
                 sizeLimit: 15,
@@ -52,7 +52,7 @@
 
         settings = {
             Pause: false,
-            Speed: 1,
+            Speed: 0.3,
             Gravity: 0.0,
             colors: [
                 defaultColorSetting(0, "red", true),
@@ -81,8 +81,8 @@
             //game settings
             const settingGame = settings.gui.addFolder('Game Settings');
             settingGame.add(settings, 'Pause');
-            settingGame.add(settings, 'Speed', -10, 10, 0.1).name("Game Speed");
-            settingGame.add(settings, 'Gravity', 0, 10, 0.1);
+            settingGame.add(settings, 'Speed', 0, 1).name("Chaos");
+            settingGame.add(settings, 'Gravity', 0, 1);
             settingGame.add(settings, 'Random').name("Randomize Rules");
 
             //particle on/off
@@ -218,16 +218,19 @@
                         fy += F * dy;
                     }
                 }
-                a.vx = (a.vx + fx) * 0.5;
-                a.vy = (a.vy + fy) * 0.5;
+
+                fy += settings.Gravity;
+                a.vx = (a.vx + fx) * Math.sqrt(settings.Speed);
+                a.vy = (a.vy + fy) * Math.sqrt(settings.Speed);
                 a.x += a.vx;
                 a.y += a.vy;
 
                 //push back in
-                if (a.x <= 0) { a.vx = -1 * a.vx + 5; }
-                else if (a.x >= canvasSize.x - initSize) { a.vx = -1 * a.vx - 5; }
-                else if (a.y <= 0) { a.vy = -1 * a.vy + 5; }
-                else if (a.y >= canvasSize.y - initSize) { a.vy = -1 * a.vy - 5; }
+                let pushBackOffset = 10;
+                if (a.x <= 0) { a.vx = -1 * a.vx + pushBackOffset; }
+                else if (a.x >= canvasSize.x - initSize) { a.vx = -1 * a.vx - pushBackOffset; }
+                else if (a.y <= 0) { a.vy = -1 * a.vy + pushBackOffset; }
+                else if (a.y >= canvasSize.y - initSize) { a.vy = -1 * a.vy - pushBackOffset; }
             }
         };
 
