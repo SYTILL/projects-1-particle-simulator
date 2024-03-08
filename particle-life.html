@@ -43,16 +43,22 @@
                 color: c,
                 onOff: on,
                 detectionRange: 50,
-                deathEvent: "nothing",
+
+                respawn: true,
+                respawnPos: ["Random"],
+                respawnColor: ["Random"],
+                respawnNum: 1,
+                explosion: 0,
+
                 consumeSizeUp: 1,
                 sizeLimit: 15,
-                canConsume: ["red"],
             }
         }
 
         settings = {
             Pause: false,
-            Speed: 0.3,
+            Chaos: 0.05,
+            Speed: 1,
             Gravity: 0.0,
             colors: [
                 defaultColorSetting(0, "red", true),
@@ -64,16 +70,11 @@
                 defaultColorSetting(6, "violet", false),
             ],
             rules: {},
-            Random: () => { randomRules() },
+            RandomProperty: () => { randomProperties() },
+            RandomRule: () => { randomRules() },
+            Boundary: false,
             gui: null,
         }
-
-        Object.defineProperty(String.prototype, 'capitalise', {
-            value: function () {
-                return this.charAt(0).toUpperCase() + this.slice(1);
-            },
-            enumerable: false
-        })
 
         const setupGUI = () => {
             settings.gui = new lil.GUI();
@@ -81,9 +82,13 @@
             //game settings
             const settingGame = settings.gui.addFolder('Game Settings');
             settingGame.add(settings, 'Pause');
-            settingGame.add(settings, 'Speed', 0, 1).name("Chaos");
+            settingGame.add(settings, 'Speed', 0, 1).name("Game Speed");
+            settingGame.add(settings, 'Chaos', 0, 1);
             settingGame.add(settings, 'Gravity', 0, 1);
-            settingGame.add(settings, 'Random').name("Randomize Rules");
+            settingGame.add(settings, 'Boundary').name("Show Boundary");
+
+            settingGame.add(settings, 'RandomProperty').name("Randomize Property");
+            settingGame.add(settings, 'RandomRule').name("Randomize Strength").listen();
 
             //particle on/off
             const settingParticleOnOff = settings.gui.addFolder('Particle ON/OFF');
@@ -112,26 +117,53 @@
                 //[color] - property
                 const folderRuleProperty = folderRule
                     .addFolder(i)
-                    .title(`<font color=\'${i}\'>property</font>`)
+                    .title(`<font color=\'${i}\'>Property</font>`)
                     .close();
 
-                folderRuleProperty.add(element, "detectionRange", 10, 300, 1);
+                folderRuleProperty.add(element, "detectionRange", 10, 150, 1).name("Boundary");
+
+                folderRuleProperty.add(element, "sizeLimit", 1, 50, 1).name("Size Limit");
+                folderRuleProperty.add(element, "respawn").name("Respawn")
+                    .listen().onFinishChange((v) => {
+                        respawnOnOff();
+                    });
+                folderRuleProperty.add(element, "respawnPos", ["Random", "Current Position"]).name("Respawn Position");
+                folderRuleProperty.add(element, "respawnColor",
+                    ["Random", ...settings.colors.map(function (i) { return i.color })]).name("Respawn Particle");
 
 
                 //[color] - strength
                 const folderRuleStrength = folderRule
                     .addFolder(i)
-                    .title(`<font color=\'${i}\'>strength</font>`)
+                    .title(`<font color=\'${i}\'>Strength</font>`)
 
-                for (var j of settings.colors) {
-                    j = j.color
+                for (const j of settings.colors) {
                     //[color]<=>[color] (controller)
-                    folderRuleStrength.add(settings.rules[i], j, -1, 1)
-                        .name(`<font color=\'${i}\'>${i}</font><=><font color=\'${j}\'>${j}</font>`)
+                    folderRuleStrength.add(settings.rules[i], j.color, -1, 1).listen()
+                        .name(`<font color=\'${i}\'>${i}</font><=><font color=\'${j.color}\'>${j.color}</font>`)
                 }
             }
             foldersOnOff();
 
+        }
+
+        respawnOnOff = () => {
+            for (var i = 0; i < settings.colors.length; i++) {
+                element = settings.gui.folders[1].children[i];
+
+                if (element.object.onOff) {
+                    property = settings.gui.folders[2].children[i].children[0];
+
+                    if (property.children[2].object.respawn) { //if respawn option is ON
+                        property.children[3].show();
+                        property.children[4].show();
+                    }
+                    else {
+                        property.children[3].hide();
+                        property.children[4].hide();
+                    }
+                }
+            }
         }
 
         foldersOnOff = () => {
@@ -158,9 +190,17 @@
             }
         }
 
-        randomRules = () => {
+        createRules = () => {
             for (const i of settings.colors) {
                 settings.rules[i.color] = {};
+                for (const j of settings.colors) {
+                    settings.rules[i.color][j.color] = Number((Math.random() * 2 - 1).toFixed(3));
+                }
+            }
+        };
+
+        randomRules = () => {
+            for (const i of settings.colors) {
                 for (const j of settings.colors) {
                     settings.rules[i.color][j.color] = Number((Math.random() * 2 - 1).toFixed(3));
                 }
@@ -170,11 +210,18 @@
         draw = (x, y, c, s, opt = null) => {
             m.fillStyle = c;
             if (!opt) {
-                m.fillRect(x, y, s, s);
+                m.fillRect(x - s / 2, y - s / 2, s, s); // draw square
             }
             else {
-                m.fillRect(x, y, s, opt);
+                m.fillRect(x - s / 2, y - opt / 2, s, opt); // draw rectangle
             }
+        };
+
+        drawBoundary = (x, y, c, r) => {
+            m.strokeStyle = c;
+            m.beginPath();
+            m.arc(x, y, r, 0, 2 * Math.PI);
+            m.stroke();
         };
 
         atoms = [];
@@ -202,7 +249,7 @@
 
         rule = (a1, a2, g) => {
             atoms1 = atomSets[a1];
-            atoms2 = atomSets[a2]; 
+            atoms2 = atomSets[a2];
             for (let i = 0; i < atoms1.length; i++) {
                 fx = 0;
                 fy = 0;
@@ -212,16 +259,18 @@
                     dx = a.x - b.x;
                     dy = a.y - b.y;
                     d = Math.sqrt(dx * dx + dy * dy);
+
+                    //if a2 in a1's detection range
                     if (d > 0 && d < settings.colors[a1].detectionRange) {
-                        F = (g * 1) / d;
+                        F = g / (d / settings.Speed);
                         fx += F * dx;
                         fy += F * dy;
                     }
                 }
 
                 fy += settings.Gravity;
-                a.vx = (a.vx + fx) * Math.sqrt(settings.Speed);
-                a.vy = (a.vy + fy) * Math.sqrt(settings.Speed);
+                a.vx = (a.vx + fx) * Math.sqrt(settings.Chaos); //add chaos
+                a.vy = (a.vy + fy) * Math.sqrt(settings.Chaos); //add chaos
                 a.x += a.vx;
                 a.y += a.vy;
 
@@ -245,12 +294,12 @@
             }
         }
 
-        //--------------setup start-------------
-        randomRules();
+        //-------------------------------------setup start------------------------------------
+        createRules();
         setupGUI();
 
-        const initParticleNum = 50;
-        const initSize = 5;
+        const initParticleNum = 200;
+        const initSize = 3;
         const canvasSize = { x: 500, y: 500 };
 
         atomSets = [];
@@ -259,23 +308,30 @@
         }
 
         update = () => {
-            if (!settings.Pause) {
-                applyRules();
-                m.clearRect(0, 0, 500, 500);
-                draw(0, 0, "black", 500);
+            //pause game
+            if (settings.Pause || settings.Speed == 0) {
+                m.clearRect(0, 0, canvasSize.x, canvasSize.y);
+                draw(canvasSize.x / 2, canvasSize.y / 2, "darkslategray", canvasSize.x, canvasSize.y);
+                draw(canvasSize.x / 2 - 25, canvasSize.y / 2, "grey", 20, 100);
+                draw(canvasSize.x / 2 + 25, canvasSize.y / 2, "grey", 20, 100);
             }
             else {
-                m.clearRect(0, 0, 500, 500);
-                draw(0, 0, "darkslategray", 500);
-                draw(canvasSize.x / 2 - 10 - 25, canvasSize.y / 2 - 50, "grey", 20, 100);
-                draw(canvasSize.x / 2 - 10 + 25, canvasSize.y / 2 - 50, "grey", 20, 100);
+                settings.Pause = false;
+                applyRules();
+                m.clearRect(0, 0, canvasSize.x, canvasSize.y);
+                draw(canvasSize.x / 2, canvasSize.y / 2, "black", canvasSize.x, canvasSize.y);
             }
 
+            //draw each particle
             for (i = 0; i < settings.colors.length; i++) {
                 if (!settings.colors[i].onOff) { continue; }
 
                 for (j = 0; j < atomSets[i].length; j++) {
                     draw(atomSets[i][j].x, atomSets[i][j].y, atomSets[i][j].color, atomSets[i][j].size);
+
+                    if (settings.Boundary) {
+                        drawBoundary(atomSets[i][j].x, atomSets[i][j].y, atomSets[i][j].color, settings.colors[i].detectionRange);
+                    }
                 }
             }
             requestAnimationFrame(update);
