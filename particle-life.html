@@ -247,6 +247,14 @@
             return group;
         };
 
+        onHit = (a,b, i,j) => {
+            a.s += 1;
+            b.s += 1;
+            if (a.s > settings.colors[i].sizeLimit){
+                //?
+            }
+        };
+
         rule = (a1, a2, g) => {
             atoms1 = atomSets[a1];
             atoms2 = atomSets[a2];
@@ -259,6 +267,10 @@
                     dx = a.x - b.x;
                     dy = a.y - b.y;
                     d = Math.sqrt(dx * dx + dy * dy);
+
+                    if (d < a.s) {
+                        //onHit(a, b, a1, a2);
+                    }
 
                     //if a2 in a1's detection range
                     if (d > 0 && d < settings.colors[a1].detectionRange) {
@@ -298,7 +310,7 @@
         createRules();
         setupGUI();
 
-        const initParticleNum = 200;
+        const initParticleNum = 10;
         const initSize = 3;
         const canvasSize = { x: 500, y: 500 };
 
