@@ -42,11 +42,11 @@
                 index: i,
                 color: c,
                 onOff: on,
-                detectionRange: 200,
+                detectionRange: 50,
 
-                respawn: true,
-                respawnPos: ["Random"],
-                respawnColor: ["Random"],
+                respawn: false,
+                respawnPos: "Random",
+                respawnColor: "Random",
                 respawnNum: 1,
                 explosion: 0,
 
@@ -63,7 +63,7 @@
             colors: [
                 defaultColorSetting(0, "red", true),
                 defaultColorSetting(1, "orange", true),
-                defaultColorSetting(2, "yellow", false),
+                defaultColorSetting(2, "yellow", true),
                 defaultColorSetting(3, "green", false),
                 defaultColorSetting(4, "aqua", false),
                 defaultColorSetting(5, "blue", false),
@@ -74,6 +74,8 @@
             RandomRule: () => { randomRules() },
             Boundary: false,
             SetBoundaryRange: 50,
+            SetSizeLimit: 15,
+            SetCombination: false,
             gui: null,
         }
 
@@ -87,13 +89,8 @@
             settingGame.add(settings, 'Chaos', 0, 1);
             settingGame.add(settings, 'Gravity', 0, 1);
             settingGame.add(settings, 'Boundary').name("Show Boundary");
-            settingGame.add(settings, 'SetBoundaryRange').name("Set Boundary")
-                .listen().onFinishChange((v) => {
-                    changeBoundary(v);
-                });;
 
-            settingGame.add(settings, 'RandomProperty').name("Randomize Property");
-            settingGame.add(settings, 'RandomRule').name("Randomize Strength").listen();
+
 
             //particle on/off
             const settingParticleOnOff = settings.gui.addFolder('Particle ON/OFF');
@@ -107,8 +104,39 @@
                     });
             }
 
+
+
             //particle rules
             const settingParticleRules = settings.gui.addFolder('Particle Rules');
+
+
+
+            //particle rules - common
+            const folderCommonRule = settingParticleRules.addFolder('[Common Rules]');
+
+            //folderCommonRule.add(settings, 'RandomProperty').name("Randomize Property");
+
+            folderCommonRule.add(settings, 'RandomRule').name("Randomize Strength");
+
+            folderCommonRule.add(settings, 'SetBoundaryRange').name("Set Boundary")
+                .onFinishChange((v) => { changeProperty(v, "detectionRange"); });
+
+            folderCommonRule.add(settings, 'SetCombination').name("Set Combination")
+                .onFinishChange((v) => {
+                    changeProperty(v, "respawn");
+                    respawnOnOff();
+                    if (v) settings.gui.folders[2].children[0].children[3].show();
+                    else settings.gui.folders[2].children[0].children[3].hide();
+                });
+
+            folderCommonRule.add(settings, 'SetSizeLimit')
+                .name("Set Size Limit").hide()
+                .onFinishChange((v) => { changeProperty(v, "sizeLimit"); });
+
+
+
+
+            //particle rules - colors
             for (var i of settings.colors) {
                 element = i
                 i = i.color
@@ -119,6 +147,7 @@
                     .title(`<font color=\'${i}\'>[${i}]</font>`)
                     .close();
 
+
                 //[color] - property
                 const folderRuleProperty = folderRule
                     .addFolder(i)
@@ -127,22 +156,28 @@
 
                 folderRuleProperty.add(element, "detectionRange", 10, 200, 1).listen().name("Boundary");
 
-                folderRuleProperty.add(element, "sizeLimit", 1, 50, 1).name("Size Limit");
-
-                folderRuleProperty.add(element, "respawn").name("Respawn")
+                folderRuleProperty.add(element, "respawn").name("Combination")
                     .listen().onFinishChange((v) => {
                         respawnOnOff();
                     });
 
-                folderRuleProperty.add(element, "respawnPos", ["Random", "Current Position"]).name("Respawn Position");
+                folderRuleProperty.add(element, "sizeLimit", 1, 50, 1).listen()
+                    .hide().name("Size Limit");
+
+                folderRuleProperty.add(element, "respawnNum", 1, 10, 1)
+                    .hide().name("# of Respawn");
+
+                folderRuleProperty.add(element, "respawnPos", ["Random", "Current Position"])
+                    .hide().name("Respawn Position");
 
                 folderRuleProperty.add(element, "respawnColor",
-                    ["Random", ...settings.colors.map(function (i) { return i.color })]).name("Respawn Particle");
+                    ["Random", ...settings.colors.map(function (i) { return i.color })])
+                    .hide().name("Respawn Particle");
 
 
                 //[color] - strength
                 const folderRuleStrength = folderRule
-                    .addFolder(i)
+                    .addFolder(i).close()
                     .title(`<font color=\'${i}\'>Strength</font>`)
 
                 for (const j of settings.colors) {
@@ -155,9 +190,9 @@
 
         }
 
-        changeBoundary = (v) => {
+        changeProperty = (v, k) => {
             for (var i = 0; i < settings.colors.length; i++) {
-                settings.colors[i].detectionRange = v;
+                settings.colors[i][k] = v;
             }
         }
 
@@ -166,15 +201,19 @@
                 element = settings.gui.folders[1].children[i];
 
                 if (element.object.onOff) {
-                    property = settings.gui.folders[2].children[i].children[0];
+                    property = settings.gui.folders[2].children[i + 1].children[0];
 
-                    if (property.children[2].object.respawn) { //if respawn option is ON
+                    if (property.children[1].object.respawn) { //if respawn option is ON
+                        property.children[2].show();
                         property.children[3].show();
                         property.children[4].show();
+                        property.children[5].show();
                     }
                     else {
+                        property.children[2].hide();
                         property.children[3].hide();
                         property.children[4].hide();
+                        property.children[5].hide();
                     }
                 }
             }
@@ -185,21 +224,21 @@
                 element = settings.gui.folders[1].children[i];
 
                 if (element.object.onOff) {
-                    settings.gui.folders[2].children[i].show();
+                    settings.gui.folders[2].children[i + 1].show();
 
                     for (var j = 0; j < settings.colors.length; j++) {
                         element2 = settings.gui.folders[1].children[j];
 
                         if (element2.object.onOff) {
-                            settings.gui.folders[2].children[i].children[1].children[j].show();
+                            settings.gui.folders[2].children[i + 1].children[1].children[j].show();
                         }
                         else {
-                            settings.gui.folders[2].children[i].children[1].children[j].hide();
+                            settings.gui.folders[2].children[i + 1].children[1].children[j].hide();
                         }
                     }
                 }
                 else {
-                    settings.gui.folders[2].children[i].hide();
+                    settings.gui.folders[2].children[i + 1].hide();
                 }
             }
         }
@@ -279,7 +318,7 @@
                     d = Math.sqrt(dx * dx + dy * dy);
 
                     //size up if collide
-                    if (a1!=a2 && d < a.size) {
+                    if (settings.colors[a1].respawn && a1 != a2 && d < a.size) {
                         a.size += 1
                         b.size += 1
                     }
@@ -292,35 +331,44 @@
                     }
                 }
 
-                
-                if (a.size > settings.colors[a1].sizeLimit) {
+
+                if (a.size > settings.colors[a1].sizeLimit + initSize) {
                     //create particles
-                    for (let n = 0; n < settings.colors[a1].respawnNum; n++) { 
+                    for (let n = 0; n < settings.colors[a1].respawnNum; n++) {
+
                         //select particle color
                         respawnC = 0;
                         if (settings.colors[a1].respawnColor == "Random") {
-                            respawnC = Math.round(Math.random() * (settings.colors.length - 1));
+                            availableColors = [];
+                            for (let i = 0; i < settings.colors.length; i++) {
+                                if (settings.colors[i].onOff) {
+                                    availableColors.push(i);
+                                }
+                            }
+                            respawnC = availableColors[Math.floor(Math.random() * (availableColors.length))];
                         }
                         else {
                             respawnC = settings.colors.findIndex(x => x.color == settings.colors[a1].respawnColor);
                         }
-                        console.log(respawnC);
+
+                        if (atomSets[respawnC].length > particleNumLimit) {
+                            continue;
+                        }
 
                         //select spawn position
                         if (settings.colors[a1].respawnPos == "Random") {
-                            atomSets[respawnC].push(atom(random(), random(), settings.colors[a1].respawnColor, initSize))
+                            atomSets[respawnC].push(atom(random(), random(), settings.colors[respawnC].color, initSize))
                         }
-                        else if (settings.colors[a1].respawnPos == "Current Positon") {
-                            atomSets[respawnC].push(atom(a.x, a.y, settings.colors[a1].respawnColor, initSize))
+                        else if (settings.colors[a1].respawnPos == "Current Position") {
+                            atomSets[respawnC].push(atom(a.x, a.y, settings.colors[respawnC].color, initSize))
                         }
                         else {
-                            throw Error("wrong respawn position", settings.colors[a1].respawnPos);
+                            throw Error("wrong respawn position", settings.colors[respawnC].color);
                         }
 
                     }
 
                     atoms1.splice(i, 1); //death
-
 
                     i--;
                     continue;
@@ -341,6 +389,7 @@
             }
         };
 
+
         applyRules = () => {
             for (var i = 0; i < settings.colors.length; i++) {
                 for (var j = 0; j < settings.colors.length; j++) {
@@ -356,7 +405,8 @@
         createRules();
         setupGUI();
 
-        const initParticleNum = 1;
+        const initParticleNum = 100;
+        const particleNumLimit = 200;
         const initSize = 3;
         const canvasSize = { x: 500, y: 500 };
 
